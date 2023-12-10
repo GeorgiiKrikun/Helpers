@@ -8,7 +8,8 @@ import sys
 
 PROJECTS_FILE = os.path.join(os.path.expanduser("~"), "krikun_projects.json")
 HELPERS_DIR = os.path.dirname(os.path.realpath(__file__))
-BASHRC_FILE = os.path.join(HELPERS_DIR, "krikun-bash-init")
+BASHRC_INIT_FILE = os.path.join(os.path.expanduser("~"), "krikun-bash-init")
+BASHRC_FILE = os.path.join(os.path.expanduser("~"), ".bashrc")
 
 def directory_path(path_str):
     if os.path.isdir(path_str):
@@ -16,12 +17,23 @@ def directory_path(path_str):
     else:
         raise NotADirectoryError(path_str)
 
-def get_bashrc_line(name:str, path:str, var:str) -> str:
+def get_init_file_line(name:str, path:str, var:str) -> str:
     return f"export {var}={path}"
     
-def write_source_file(lines: List[str]):
+def get_bashrc_line() -> str:
+    return f"source {BASHRC_INIT_FILE}"
+
+def commit_bashrc():
+    lines = []
+    with open(BASHRC_FILE, 'r') as f:
+        lines = f.readlines()
+    
+    add_line = get_bashrc_line()
+    if add_line not in lines:
+        lines.append(add_line)
+    
     with open(BASHRC_FILE, 'w') as f:
-        f.write("\n".join(lines))
+        f.write("".join(lines))
 
 def get_projects_dict() -> dict:
     lib = {}
@@ -30,13 +42,19 @@ def get_projects_dict() -> dict:
             lib = json.load(f)
     return lib
 
-def commit_sources():
+def commit_init_file():
     lib = get_projects_dict()
     lines = []
+    PATH_var = "$PATH"
     for name, project in lib.items():
-        line = get_bashrc_line(name, project['path'], project['var'])
+        line = get_init_file_line(name, project['path'], project['var'])
         lines.append(line)
-    write_source_file(lines)
+        PATH_var += ":$"+project['var']
+
+    with open(BASHRC_INIT_FILE, 'w') as f:
+        f.write("\n".join(lines))
+        f.write("\n")
+        f.write(f"export PATH={PATH_var}")
 
 def add_project(name: str, path: str, var: Optional[str]):
     lib = get_projects_dict()
@@ -52,7 +70,7 @@ def add_project(name: str, path: str, var: Optional[str]):
     with open(PROJECTS_FILE, 'w') as f:
         json.dump(lib, f, indent=4)
 
-    commit_sources()
+    commit_init_file()
 
     print(f"Added project {name} with path {path} and variable {var}")
 
@@ -67,7 +85,7 @@ def delete_project(name: str):
         print(f"Project with name {name} does not exist")
         sys.exit(1) 
 
-    commit_sources()
+    commit_init_file()
 
 def list_projects():
     lib = get_projects_dict()
@@ -98,6 +116,9 @@ if __name__ == '__main__':
     # List parser
     list_parser = subparsers.add_parser('list', help='List projects')
 
+    change_bashrc_parser = subparsers.add_parser('init', help='Change bashrc file with current config')
+
+
     args = parser.parse_args()
     if args.command == 'add':
         add_project(args.name, args.path, args.var)
@@ -105,6 +126,8 @@ if __name__ == '__main__':
         delete_project(args.name)
     elif args.command == 'list':
         list_projects()
+    elif args.command == 'init':
+        commit_bashrc()
     else:
         print("Invalid command")
         sys.exit(1)
