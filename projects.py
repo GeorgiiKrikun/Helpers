@@ -2,12 +2,13 @@
 
 import argparse
 import os
-from typing import Optional
-import environ
+from typing import List, Optional
 import json
 import sys
-projects_file = os.path.join(os.path.expanduser("~"), "krikun_projects.json")
 
+PROJECTS_FILE = os.path.join(os.path.expanduser("~"), "krikun_projects.json")
+HELPERS_DIR = os.path.dirname(os.path.realpath(__file__))
+BASHRC_FILE = os.path.join(HELPERS_DIR, "krikun-bash-init")
 
 def directory_path(path_str):
     if os.path.isdir(path_str):
@@ -15,11 +16,30 @@ def directory_path(path_str):
     else:
         raise NotADirectoryError(path_str)
 
-def add_project(name: str, path: str, var: Optional[str]):
+def get_bashrc_line(name:str, path:str, var:str) -> str:
+    return f"export {var}={path}"
+    
+def write_source_file(lines: List[str]):
+    with open(BASHRC_FILE, 'w') as f:
+        f.write("\n".join(lines))
+
+def get_projects_dict() -> dict:
     lib = {}
-    if os.path.exists(projects_file):
-        with open(projects_file, 'r') as f:
+    if os.path.exists(PROJECTS_FILE):
+        with open(PROJECTS_FILE, 'r') as f:
             lib = json.load(f)
+    return lib
+
+def commit_sources():
+    lib = get_projects_dict()
+    lines = []
+    for name, project in lib.items():
+        line = get_bashrc_line(name, project['path'], project['var'])
+        lines.append(line)
+    write_source_file(lines)
+
+def add_project(name: str, path: str, var: Optional[str]):
+    lib = get_projects_dict()
 
     if lib.get(name):
         print(f"Project with name {name} already exists")
@@ -29,29 +49,28 @@ def add_project(name: str, path: str, var: Optional[str]):
         var = name.upper()+"_PROJECT_PATH"
     
     lib[name] = {"path": path, "var": var}
-    with open(projects_file, 'w') as f:
+    with open(PROJECTS_FILE, 'w') as f:
         json.dump(lib, f, indent=4)
 
+    commit_sources()
+
+    print(f"Added project {name} with path {path} and variable {var}")
+
 def delete_project(name: str):
-    lib = {}
-    if os.path.exists(projects_file):
-        with open(projects_file, 'r') as f:
-            lib = json.load(f)
+    lib = get_projects_dict()
 
     if lib.get(name):
         del lib[name]
-        with open(projects_file, 'w') as f:
+        with open(PROJECTS_FILE, 'w') as f:
             json.dump(lib, f, indent=4)
     else:
         print(f"Project with name {name} does not exist")
         sys.exit(1) 
 
+    commit_sources()
 
 def list_projects():
-    lib = {}
-    if os.path.exists(projects_file):
-        with open(projects_file, 'r') as f:
-            lib = json.load(f)
+    lib = get_projects_dict()
 
     if len(lib) == 0:
         print("No projects exist")
