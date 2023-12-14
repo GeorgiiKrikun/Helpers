@@ -1,9 +1,0 @@
-#!/bin/bash
-
-project_name=$1
-project_path=$2
-project_var=$3
-
-SCRIPTPATH=$( get_script_path )
-touch $SCRIPTPATH/projects
-echo "proj: $project_name; path: $project_path, var $project_var;" >> $SCRIPTPATH/projects
